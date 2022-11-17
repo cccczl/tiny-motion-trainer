@@ -60,7 +60,7 @@ def keras_to_tflite(bin_file, quantize=False, quantize_data=None):
     tflite_model = converter.convert()
 
     base_path = os.path.splitext(bin_file)[0]
-    out_file = base_path + ".tflite"
+    out_file = f"{base_path}.tflite"
 
     # Save the TF Lite model.
     with tf.io.gfile.GFile(out_file, 'wb') as f:
@@ -70,7 +70,7 @@ def keras_to_tflite(bin_file, quantize=False, quantize_data=None):
 
 def tfjs_to_keras(json_file):
     base_path = os.path.splitext(json_file)[0]
-    out_file = base_path + '.hdf5'
+    out_file = f'{base_path}.hdf5'
     result = subprocess.check_output(['tensorflowjs_converter', '--input_format=tfjs_layers_model',
                                       '--output_format=keras', json_file, out_file])
     print(result)
@@ -124,9 +124,15 @@ def generate_arduino_code(out_folder, request_args, version):
     labels = request_args.get('labels', type=str).split(',')
     labels = ', '.join(['"' + x + '"' for x in labels])
 
-    out_path = os.path.join(out_folder, ARDUINO_FOLDER_NAME + '.ino')
-    code = render_template('ArduinoExample-v' + version + '.txt', delay=delay,
-                           numSamples=numSamples, threshold=threshold, labels=labels)
+    out_path = os.path.join(out_folder, f'{ARDUINO_FOLDER_NAME}.ino')
+    code = render_template(
+        f'ArduinoExample-v{version}.txt',
+        delay=delay,
+        numSamples=numSamples,
+        threshold=threshold,
+        labels=labels,
+    )
+
     with open(out_path, 'w') as f:
         f.write(code)
     return out_path
@@ -142,7 +148,7 @@ def xxd_test():
         output = "Status : FAIL - return code: " + \
             str(exc.returncode) + ", output: " + exc.output
     else:
-        output = "Output: \n{}\n".format(output)
+        output = f"Output: \n{output}\n"
     return output
 
 
@@ -156,7 +162,7 @@ def node_test():
         output = "Status : FAIL - return code: " + \
             str(exc.returncode) + ", output: " + exc.output
     else:
-        output = "Output: \n{}\n".format(output)
+        output = f"Output: \n{output}\n"
     return output
 
 
@@ -189,9 +195,9 @@ def to_tflite():
     tmp_dir = app.config['UPLOAD_FOLDER'] + shortuuid.uuid() + '/'
     os.mkdir(tmp_dir)
 
-    error = None
     file_data = None
     if request.method == 'POST':
+        error = None
         try:
             print(request.files)
             f = request.files['model.weights.bin']
@@ -207,13 +213,9 @@ def to_tflite():
             quantize = request.args.get('quantize', type=bool, default=False)
             quantize_data_str = request.form.get(
                 'quantize_data', type=str, default=None)
-            quantize_data = None
-
             version = request.args.get('version', type=str, default='2')
 
-            if quantize_data_str:
-                quantize_data = json.loads(quantize_data_str)
-
+            quantize_data = json.loads(quantize_data_str) if quantize_data_str else None
             tflite_path = keras_to_tflite(keras_path, quantize, quantize_data)
 
             file_data = get_and_remove_file(tflite_path)
@@ -225,10 +227,9 @@ def to_tflite():
             shutil.rmtree(tmp_dir)
             if error:
                 return sys.exc_info()[0]
-            else:
-                timestr = time.strftime("%Y%m%d-%H%M%S")
-                output_filename = 'model-' + timestr + '.tflite'
-                return send_file(file_data, mimetype='application/octet-stream', attachment_filename=output_filename)
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            output_filename = f'model-{timestr}.tflite'
+            return send_file(file_data, mimetype='application/octet-stream', attachment_filename=output_filename)
 
 
 @ app.route('/proc', methods=['GET', 'POST'])
@@ -240,7 +241,6 @@ def upload_file():
     tmp_dir = app.config['UPLOAD_FOLDER'] + shortuuid.uuid() + '/'
     os.mkdir(tmp_dir)
 
-    error = None
     file_data = None
     if request.method == 'POST':
         # try:
@@ -258,13 +258,9 @@ def upload_file():
         quantize = request.args.get('quantize', type=bool, default=False)
         quantize_data_str = request.form.get(
             'quantize_data', type=str, default=None)
-        quantize_data = None
-
         version = request.args.get('version', type=str, default='2')
 
-        if quantize_data_str:
-            quantize_data = json.loads(quantize_data_str)
-
+        quantize_data = json.loads(quantize_data_str) if quantize_data_str else None
         tflite_path = keras_to_tflite(keras_path, quantize, quantize_data)
 
         code_path = os.path.join(tmp_dir, ARDUINO_FOLDER_NAME)
@@ -282,12 +278,12 @@ def upload_file():
         # finally:
         # cleanup
         shutil.rmtree(tmp_dir)
+        error = None
         if error:
             return sys.exc_info()[0]
-        else:
-            timestr = time.strftime("%Y%m%d-%H%M%S")
-            output_filename = 'tinyml-gesture-' + timestr + '.tgz'
-            return send_file(file_data, mimetype='application/tar+gzip', attachment_filename=output_filename)
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        output_filename = f'tinyml-gesture-{timestr}.tgz'
+        return send_file(file_data, mimetype='application/tar+gzip', attachment_filename=output_filename)
 
 
 @app.errorhandler(500)
